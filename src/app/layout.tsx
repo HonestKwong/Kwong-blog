@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { AppShell } from "@/core/ui/shell";
 
 export const metadata = {
   title: "Kwong",
@@ -8,7 +9,9 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="zh-CN">
-      <body>{children}</body>
+      <body>
+        <AppShell>{children}</AppShell>
+      </body>
     </html>
   );
 }
