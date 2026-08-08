@@ -13,9 +13,13 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint": "next lint --max-warnings=0",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.3",
     "next": "15",
     "react": "18",
     "react-dom": "18"
@@ -28,6 +32,7 @@
     "eslint-config-next": "^15.5.23",
     "eslint-plugin-boundaries": "^7.1.0",
     "prettier": "^3.9.6",
+    "prisma": "^6.19.3",
     "typescript": "^5.8.2",
     "vitest": "^3.0.8"
   }
