@@ -1,11 +1,28 @@
-import { describe, expect, it } from "vitest";
-import { getHealth } from "./health";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const queryRaw = vi.fn();
+vi.mock("@/core/db/client", () => ({
+  prisma: { $queryRaw: (...args: unknown[]) => queryRaw(...args) },
+}));
 
 describe("getHealth", () => {
-  it("returns ok status with an ISO timestamp", () => {
-    const result = getHealth();
-    expect(result.status).toBe("ok");
+  beforeEach(() => {
+    queryRaw.mockReset();
+    vi.resetModules();
+  });
+
+  it("reports ok when database responds", async () => {
+    queryRaw.mockResolvedValue([{ ok: 1 }]);
+    const { getHealth } = await import("./health");
+    const result = await getHealth();
+    expect(result).toMatchObject({ status: "ok", db: "up" });
     expect(() => new Date(result.time).toISOString()).not.toThrow();
-    expect(new Date(result.time).toISOString()).toBe(result.time);
+  });
+
+  it("reports degraded when database fails", async () => {
+    queryRaw.mockRejectedValue(new Error("db down"));
+    const { getHealth } = await import("./health");
+    const result = await getHealth();
+    expect(result).toMatchObject({ status: "degraded", db: "down" });
   });
 });

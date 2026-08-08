@@ -3,6 +3,8 @@ import { getHealth } from "@/core/observability/health";
 
 export const dynamic = "force-dynamic";
 
-export function GET() {
-  return NextResponse.json(getHealth());
+export async function GET() {
+  const health = await getHealth();
+  const status = health.db === "up" ? 200 : 503;
+  return NextResponse.json(health, { status });
 }
