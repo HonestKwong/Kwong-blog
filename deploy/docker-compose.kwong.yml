@@ -34,5 +34,5 @@ volumes:
 
 networks:
   kwong_net:
-    name: ${KWONG_DOCKER_NETWORK:-mynetwork}
+    name: ${KWONG_DOCKER_NETWORK:-xray-network}
     external: true

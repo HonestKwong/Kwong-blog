@@ -14,6 +14,6 @@ describe("deploy compose fragment", () => {
   it("uses a named volume and external network", () => {
     expect(yaml).toContain("kwong_data:");
     expect(yaml).toContain("external: true");
-    expect(yaml).toContain("${KWONG_DOCKER_NETWORK:-mynetwork}");
+    expect(yaml).toContain("${KWONG_DOCKER_NETWORK:-xray-network}");
   });
 });

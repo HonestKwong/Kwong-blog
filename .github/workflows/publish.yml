@@ -72,6 +72,7 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           source: "deploy/*"
           target: "/opt/kwong"
+          strip_components: 1
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -84,6 +85,5 @@ jobs:
             echo "${{ secrets.GHCR_PULL_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_PULL_USER }}" --password-stdin
             export KWONG_WEB_IMAGE="${{ needs.publish.outputs.image }}"
             export COMPOSE_FILE="/opt/kwong/docker-compose.kwong.yml"
-            export HEALTH_URL="http://kwong-web:3000/api/health"
             chmod +x ./deploy.sh
             ./deploy.sh

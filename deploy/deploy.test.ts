@@ -13,7 +13,8 @@ describe("deploy.sh", () => {
   });
 
   it("health-checks and rolls back previous image on failure", () => {
-    expect(script).toContain("/api/health");
+    expect(script).toContain(".State.Health.Status");
+    expect(script).not.toContain("HEALTH_URL");
     expect(script).toContain("PREVIOUS_IMAGE");
     expect(script).toContain("rollback");
   });

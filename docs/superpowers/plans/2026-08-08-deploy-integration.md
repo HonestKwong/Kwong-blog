@@ -132,7 +132,7 @@ git commit -m "feat: include database readiness in health check"
 - Test: `deploy/compose.test.ts`
 
 **Interfaces:**
-- Produces: Compose 服务名固定为 `kwong-web`，镜像变量 `KWONG_WEB_IMAGE`，网络名变量 `KWONG_DOCKER_NETWORK`（默认 `mynetwork`），数据卷 `kwong_data`。
+- Produces: Compose 服务名固定为 `kwong-web`，镜像变量 `KWONG_WEB_IMAGE`，网络名变量 `KWONG_DOCKER_NETWORK`（默认 `xray-network`），数据卷 `kwong_data`。
 - Produces: 容器只 `expose: ["3000"]`，不映射宿主机端口。
 
 - [ ] **Step 1: 写 Compose 校验测试**
@@ -156,7 +156,7 @@ describe("deploy compose fragment", () => {
   it("uses a named volume and external network", () => {
     expect(yaml).toContain("kwong_data:");
     expect(yaml).toContain("external: true");
-    expect(yaml).toContain("${KWONG_DOCKER_NETWORK:-mynetwork}");
+    expect(yaml).toContain("${KWONG_DOCKER_NETWORK:-xray-network}");
   });
 });
 ```
@@ -201,7 +201,7 @@ volumes:
 
 networks:
   kwong_net:
-    name: ${KWONG_DOCKER_NETWORK:-mynetwork}
+    name: ${KWONG_DOCKER_NETWORK:-xray-network}
     external: true
 ```
 
@@ -209,13 +209,13 @@ networks:
 
 ```dotenv
 KWONG_WEB_IMAGE=ghcr.io/honestkwong/kwong-blog:REPLACE_SHA
-KWONG_DOCKER_NETWORK=mynetwork
+KWONG_DOCKER_NETWORK=xray-network
 DATABASE_URL=file:/app/data/prod.db
 SESSION_SECRET=replace-with-long-random-secret
 ADMIN_EMAIL=you@example.com
 ```
 
-`deploy/README.md` 简要说明：将此 Compose 与 `xray-deploy` 共用 `mynetwork`，或把 `kwong-web` 服务追加进现有 Compose；敏感值写入服务器上的 `.env.kwong`。
+`deploy/README.md` 简要说明：此 Compose 与 `xray-deploy` 共用固定 external 网络 `xray-network`；敏感值写入服务器上的 `.env.kwong`。
 
 - [ ] **Step 4: 更新 vitest include 并跑通测试**
 
@@ -311,7 +311,7 @@ git commit -m "docs: add nginx reverse-proxy snippet preserving xray paths"
 - Test: `deploy/deploy.test.ts`
 
 **Interfaces:**
-- Consumes: 环境变量 `KWONG_WEB_IMAGE`（完整镜像引用，含 SHA）、`HEALTH_URL`（默认 `http://127.0.0.1:3000/api/health`，在容器网络内用 `http://kwong-web:3000/api/health`）、`COMPOSE_FILE`（默认 `deploy/docker-compose.kwong.yml`）。
+- Consumes: 环境变量 `KWONG_WEB_IMAGE`（完整镜像引用，含 SHA）、`COMPOSE_FILE`（默认 `deploy/docker-compose.kwong.yml`）。健康状态通过宿主机上的 `docker inspect` 读取容器 healthcheck，避免错误地在宿主机解析 Docker 内部 DNS。
 - Produces: 退出码 0 表示部署成功；失败时回滚上一镜像并退出非 0。
 - 禁止：`compose down`、重启名为 `xray`/`nginx` 的容器。
 
@@ -333,7 +333,8 @@ describe("deploy.sh", () => {
   });
 
   it("health-checks and rolls back previous image on failure", () => {
-    expect(script).toContain("/api/health");
+    expect(script).toContain(".State.Health.Status");
+    expect(script).not.toContain("HEALTH_URL");
     expect(script).toContain("PREVIOUS_IMAGE");
     expect(script).toContain("rollback");
   });
@@ -352,7 +353,6 @@ Expected: FAIL。
 set -euo pipefail
 
 COMPOSE_FILE="${COMPOSE_FILE:-deploy/docker-compose.kwong.yml}"
-HEALTH_URL="${HEALTH_URL:-http://kwong-web:3000/api/health}"
 HEALTH_TIMEOUT_SECONDS="${HEALTH_TIMEOUT_SECONDS:-90}"
 
 if [[ -z "${KWONG_WEB_IMAGE:-}" ]]; then
@@ -369,9 +369,10 @@ docker compose -f "$COMPOSE_FILE" pull kwong-web
 docker compose -f "$COMPOSE_FILE" up -d --no-deps --force-recreate kwong-web
 
 deadline=$((SECONDS + HEALTH_TIMEOUT_SECONDS))
-until curl -fsS "$HEALTH_URL" >/tmp/kwong-health.json; do
+until [[ "$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' kwong-web 2>/dev/null || true)" == "healthy" ]]; do
   if (( SECONDS >= deadline )); then
     echo "Health check failed; starting rollback" >&2
+    docker logs --tail 100 kwong-web >&2 || true
     if [[ -n "${PREVIOUS_IMAGE}" ]]; then
       KWONG_WEB_IMAGE="$PREVIOUS_IMAGE" docker compose -f "$COMPOSE_FILE" up -d --no-deps --force-recreate kwong-web
       echo "Rolled back to ${PREVIOUS_IMAGE}" >&2
@@ -381,7 +382,7 @@ until curl -fsS "$HEALTH_URL" >/tmp/kwong-health.json; do
   sleep 3
 done
 
-echo "Deploy healthy: $(cat /tmp/kwong-health.json)"
+echo "Deploy healthy: ${KWONG_WEB_IMAGE}"
 docker image prune -f >/dev/null || true
 ```
 
@@ -571,6 +572,7 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           source: "deploy/*"
           target: "/opt/kwong"
+          strip_components: 1
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -583,7 +585,7 @@ jobs:
             echo "${{ secrets.GHCR_PULL_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_PULL_USER }}" --password-stdin
             export KWONG_WEB_IMAGE="${{ needs.publish.outputs.image }}"
             export COMPOSE_FILE="/opt/kwong/docker-compose.kwong.yml"
-            export HEALTH_URL="http://kwong-web:3000/api/health"
+            chmod +x ./deploy.sh
             ./deploy.sh
 ```
 
@@ -752,7 +754,7 @@ main().finally(async () => {
 `docs/DEPLOY.md` 必须包含：
 
 1. 在 VPS 上创建 `/opt/kwong`，放入 compose、`.env.kwong`、脚本；
-2. 确认 Docker 网络名与 `xray-deploy` 的 `mynetwork` 一致；
+2. 确认 Docker 网络名与 `xray-deploy` 的 `xray-network` 一致；
 3. 一次性替换 nginx `location /`（h1 + h2c），`nginx -t` 后 reload；
 4. 配置 GitHub Secrets：`DEPLOY_HOST`、`DEPLOY_USER`、`DEPLOY_SSH_KEY`、`GHCR_PULL_USER`、`GHCR_PULL_TOKEN`；
 5. 设置 repository variable `ENABLE_DEPLOY=true`；

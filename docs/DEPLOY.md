@@ -19,12 +19,12 @@ cp deploy/.env.example /opt/kwong/.env.kwong
 # 编辑 /opt/kwong/.env.kwong：填写 SESSION_SECRET、ADMIN_EMAIL、镜像名等
 ```
 
-确认 `KWONG_DOCKER_NETWORK` 与 `xray-deploy` 中的网络名一致（当前为 `mynetwork`）。
+确认 `KWONG_DOCKER_NETWORK` 与 `xray-deploy` 中的网络名一致（当前为 `xray-network`）。
 
 ### 2. 确认 Docker 网络
 
 ```bash
-docker network ls | grep mynetwork
+docker network inspect xray-network >/dev/null
 ```
 
 若 `kwong-web` 使用独立 Compose，网络必须以 `external: true` 方式加入现有网络。
@@ -50,7 +50,7 @@ cd /opt/kwong
 export KWONG_WEB_IMAGE=ghcr.io/<owner>/kwong-blog:main
 docker compose -f docker-compose.kwong.yml pull
 docker compose -f docker-compose.kwong.yml up -d
-curl -fsS http://kwong-web:3000/api/health
+docker inspect -f '{{.State.Health.Status}}' kwong-web
 ```
 
 ### 5. 创建管理员
