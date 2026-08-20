@@ -1,0 +1,10 @@
+{
+  "name": "Kwong-blog",
+  "install": "if [ -f .cursor/install.sh ]; then bash .cursor/install.sh; else bash repos/Kwong-blog/.cursor/install.sh; fi",
+  "terminals": [
+    {
+      "name": "dev",
+      "command": "if [ -f .cursor/dev.sh ]; then bash .cursor/dev.sh; else bash repos/Kwong-blog/.cursor/dev.sh; fi"
+    }
+  ]
+}
