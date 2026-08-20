@@ -200,7 +200,7 @@ interface SearchProvider {
 
 `h1.sock` 和 `h2c.sock` 对应 server 块中的普通 `location /` 均改为反向代理到 `kwong-web:3000`，确保 HTTP/1.1 和 HTTP/2 得到一致的网站内容。转发时设置真实 Host、客户端 IP、转发链和 HTTPS 协议信息。
 
-网站与 nginx 必须位于同一个 Docker 网络。推荐在 `xray-deploy` 的 Compose 文件中增加网站服务，使其直接加入现有 `mynetwork`。若将来拆分为两个 Compose 项目，则把网络改为固定名称的 external network。
+网站与 nginx 必须位于同一个固定名称的 external Docker 网络 `xray-network`。`xray-deploy` 与网站的独立 Compose 项目均加入该网络。
 
 nginx 配置修改前执行语法检查，成功后仅 reload nginx，不重启 Xray。网站镜像的日常发布不修改或 reload nginx。
 
